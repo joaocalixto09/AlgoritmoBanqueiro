@@ -25,6 +25,77 @@ void inicializar_dados() {
     }
 }
 
+// Função que verifica se o estado atual é seguro 
+bool is_safe_state() {
+    int work[NUMBER_OF_RESOURCES];
+    bool finish[NUMBER_OF_CUSTOMERS];
+
+    // Inicializa Work = Available e Finish = false
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) work[i] = available[i];
+    for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) finish[i] = false;
+
+    int count = 0;
+    while (count < NUMBER_OF_CUSTOMERS) {
+        bool found = false;
+        for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+            if (!finish[i]) {
+                int j;
+                // Verifica se Need <= Work
+                for (j = 0; j < NUMBER_OF_RESOURCES; j++) {
+                    if (need[i][j] > work[j]) break;
+                }
+
+                // Se todos os recursos necessários podem ser atendidos
+                if (j == NUMBER_OF_RESOURCES) {
+                    for (int k = 0; k < NUMBER_OF_RESOURCES; k++)
+                        work[k] += allocation[i][k];
+                    finish[i] = true;
+                    found = true;
+                    count++;
+                }
+            }
+        }
+        // Se nenhum cliente pôde ser atendido nesta rodada, o estado é inseguro
+        if (!found) break;
+    }
+
+    return (count == NUMBER_OF_CUSTOMERS);
+}
+
+int request_resources(int customer_num, int request[]) {
+    pthread_mutex_lock(&lock); // Protege contra condição de corrida [cite: 35]
+
+    // 1. Verifica se o pedido é maior que a necessidade ou que o disponível
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        if (request[i] > need[customer_num][i] || request[i] > available[i]) {
+            pthread_mutex_unlock(&lock);
+            return -1;
+        }
+    }
+
+    // 2. Tenta alocar os recursos temporariamente
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        available[i] -= request[i];
+        allocation[customer_num][i] += request[i];
+        need[customer_num][i] -= request[i];
+    }
+
+    // 3. Verifica se o novo estado é seguro [cite: 26-27]
+    if (is_safe_state()) {
+        pthread_mutex_unlock(&lock);
+        return 0; // Sucesso
+    } else {
+        // 4. Se for inseguro, desfaz a alocação (Rollback) [cite: 5]
+        for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+            available[i] += request[i];
+            allocation[customer_num][i] -= request[i];
+            need[customer_num][i] += request[i];
+        }
+        pthread_mutex_unlock(&lock);
+        return -1; // Negado
+    }
+}
+
 int main(int argc, char *argv[]) {
     // 1. Verificar se os recursos foram passados na linha de comando [cite: 38-39]
     if (argc != NUMBER_OF_RESOURCES + 1) {
