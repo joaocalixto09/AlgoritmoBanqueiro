@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #define NUMBER_OF_CUSTOMERS 5
 #define NUMBER_OF_RESOURCES 3
@@ -94,6 +95,53 @@ int request_resources(int customer_num, int request[]) {
         pthread_mutex_unlock(&lock);
         return -1; // Negado
     }
+}
+
+int release_resources(int customer_num, int release[]) {
+    pthread_mutex_lock(&lock); // Protege o acesso aos dados globais [cite: 35]
+
+    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+        available[i] += release[i];
+        allocation[customer_num][i] -= release[i];
+        need[customer_num][i] += release[i];
+    }
+
+    printf("Cliente %d liberou recursos.\n", customer_num);
+    
+    pthread_mutex_unlock(&lock);
+    return 0; // Sucesso [cite: 33]
+}
+
+void* customer_thread(void* arg) {
+    int customer_num = *(int*)arg;
+    int request[NUMBER_OF_RESOURCES];
+    int release[NUMBER_OF_RESOURCES];
+
+    while (1) {
+        // Gera uma solicitação aleatória baseada no que ele ainda precisa (need) [cite: 25]
+        for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+            request[i] = (need[customer_num][i] > 0) ? rand() % (need[customer_num][i] + 1) : 0;
+        }
+
+        printf("Cliente %d solicitando recursos...\n", customer_num);
+        if (request_resources(customer_num, request) == 0) {
+            printf("--- Pedido do Cliente %d FOI ACEITO.\n", customer_num);
+            
+            // Simula o uso dos recursos
+            sleep(1); 
+
+            // Libera o que foi solicitado (ou uma parte aleatória)
+            for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
+                release[i] = rand() % (allocation[customer_num][i] + 1);
+            }
+            release_resources(customer_num, release);
+        } else {
+            printf("--- Pedido do Cliente %d FOI NEGADO (Estado Inseguro).\n", customer_num);
+        }
+
+        sleep(rand() % 3); // Espera um pouco antes da próxima tentativa
+    }
+    return NULL;
 }
 
 int main(int argc, char *argv[]) {
