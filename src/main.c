@@ -14,6 +14,17 @@ int need[NUMBER_OF_CUSTOMERS][NUMBER_OF_RESOURCES];
 /* Mutex para evitar condições de corrida  */
 pthread_mutex_t lock;
 
+void inicializar_dados() {
+    for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+        for (int j = 0; j < NUMBER_OF_RESOURCES; j++) {
+            // Define uma demanda máxima aleatória (entre 0 e o disponível)
+            maximum[i][j] = (available[j] > 0) ? rand() % (available[j] + 1) : 0;
+            allocation[i][j] = 0;                  // Começa com nada alocado
+            need[i][j] = maximum[i][j];            // No início, need = maximum [cite: 21]
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     // 1. Verificar se os recursos foram passados na linha de comando [cite: 38-39]
     if (argc != NUMBER_OF_RESOURCES + 1) {
@@ -29,6 +40,8 @@ int main(int argc, char *argv[]) {
     // 3. Inicializar matrizes com zero e o Mutex
     pthread_mutex_init(&lock, NULL);
     
+    inicializar_dados();
+
     printf("Banqueiro pronto. Recursos disponíveis: ");
     for (int i = 0; i < NUMBER_OF_RESOURCES; i++) printf("%d ", available[i]);
     printf("\n");
