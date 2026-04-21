@@ -145,27 +145,40 @@ void* customer_thread(void* arg) {
 }
 
 int main(int argc, char *argv[]) {
-    // 1. Verificar se os recursos foram passados na linha de comando [cite: 38-39]
+    
     if (argc != NUMBER_OF_RESOURCES + 1) {
         printf("Erro: Use ./a.out <res1> <res2> <res3>\n");
         return -1;
     }
 
-    // 2. Inicializar o array 'available' [cite: 41]
+    // 1. Inicializa o array 'available' com os argumentos da linha de comando [cite: 38-41]
     for (int i = 0; i < NUMBER_OF_RESOURCES; i++) {
         available[i] = atoi(argv[i + 1]);
     }
 
-    // 3. Inicializar matrizes com zero e o Mutex
+    // 2. Inicializa o mutex para prevenir condições de corrida [cite: 35]
     pthread_mutex_init(&lock, NULL);
     
+    // 3. Inicializa as matrizes maximum, allocation e need
     inicializar_dados();
 
-    printf("Banqueiro pronto. Recursos disponíveis: ");
-    for (int i = 0; i < NUMBER_OF_RESOURCES; i++) printf("%d ", available[i]);
-    printf("\n");
+    // 4. Criação das threads dos clientes 
+    pthread_t customers[NUMBER_OF_CUSTOMERS];
+    int customer_ids[NUMBER_OF_CUSTOMERS];
 
-    // Próximo passo será criar os clientes e a lógica de segurança
+    for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+        customer_ids[i] = i;
+        if (pthread_create(&customers[i], NULL, customer_thread, &customer_ids[i]) != 0) {
+            perror("Falha ao criar thread");
+            return -1;
+        }
+    }
+
+    // 5. Aguarda as threads (como elas estão em loop infinito, o programa rodará até ser parado)
+    for (int i = 0; i < NUMBER_OF_CUSTOMERS; i++) {
+        pthread_join(customers[i], NULL);
+    }
+
     pthread_mutex_destroy(&lock);
     return 0;
 }
